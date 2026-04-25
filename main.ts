@@ -9,7 +9,7 @@ class MasterMachine {
 
   constructor(
     private mapCb: (value: string) => unknown,
-    private reduceCb: (acc: any[], value: any) => unknown,
+    private reduceCb: (acc: any[], value: any) => any[],
     private filePath: string,
   ) {}
 
@@ -96,7 +96,7 @@ class Machine {
   }
 
   // todo - type this cb
-  reduce(mappedFilePath: string, cb) {
+  reduce(mappedFilePath: string, cb: (acc: any[], el: any) => any[]) {
     console.log('reduce is being called!')
     this.state = "in-progress";
 
@@ -135,6 +135,20 @@ class Machine {
     const reducedValues = cleanedDataList.reduce(cb);
     console.log('these are the reduced values!!!')
     console.log(reducedValues)
+      fs.writeFile(
+        `reducedData/reducedValues.json`,
+        JSON.stringify(reducedValues),
+        (err) => {
+          if (err) {
+            console.error(err);
+          } else {
+
+            //3
+            //notify the master of the locations of the rows we wrote
+            console.log("REDUCE task DONE!");
+          }
+        },
+      );
 
   }
 }
