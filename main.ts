@@ -108,10 +108,22 @@ class Machine {
     //  The sorting is needed because typically many different keys
     //  map to the same reduce task.
 
-    console.log('this is file content inside reduce!! ', JSON.parse(fileContent))
-    // const cleanedData = fileContent.
+    const kvPairs = JSON.parse(fileContent) as [string, any][][]
+    console.log('this is file content inside reduce!! ', kvPairs)
+    const cleanedDataObj = kvPairs.flat().reduce<Record<string, any[]>>((acc, [k, v]) => {
+      if(acc[k]){
+        acc[k].push(v)
+      } else {
+        acc[k] = [v]
+      }
+      return acc
+    }, {})
 
-
+    //todo I'm doing some crazy data maniupulation here...
+    // like im mapping into object than iterating again to make an array?
+    // this is lots of 0(n) methods back to back ... 
+    const cleanedDataList = Object.entries(cleanedDataObj).map(([k, v]) => [k, v])
+    console.log("cleaned data ", cleanedDataList)
 
     //2
     //  If the amount of intermediate data is too large to fit in memory, an external sort is used.
@@ -126,8 +138,11 @@ class Machine {
 const main = (inputFilePath: string) => {
   //1: split the file into chunks (how many chunks?)
 
+  const mapFn = (s: string) => 
+    s.trim().split(" ").map(word => [word, 1])
+
   const masterMachine = new MasterMachine(
-    (a: any) => a,
+    mapFn,
     (a: any) => a,
     inputFilePath,
   );
