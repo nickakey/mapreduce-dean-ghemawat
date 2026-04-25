@@ -18,14 +18,28 @@ class MasterMachine {
     // create workers
     for (let i = 0; i < this.#workerCount / 2; i++) {
       this.#mapWorkers.push(new Machine(this, "map"));
+      this.#reduceWorkers.push(new Machine(this, "reduce")); //todo - right now I'm just creating 2 reduce workers manually to handle the fact that map breaks up the input into 2 batches. But we really should actually build out the autoscaling mechanism or a work queue.
       this.#reduceWorkers.push(new Machine(this, "reduce"));
     }
 
     //assign map workers some work
-    console.log(this.filePath);
     this.#mapWorkers.forEach((mw) => {
       mw.map(this.filePath, this.mapCb);
     });
+  }
+
+  getIdleReduceWorker(){
+    console.log(this.#reduceWorkers)
+    return this.#reduceWorkers.filter(rw => rw.state === "idle")[0]
+  }
+  receiveMappedDataPath(dataPath: string) {
+    const idleReduceWorker = this.getIdleReduceWorker()
+    if(!idleReduceWorker){
+      console.log('no idle reduce worker found!')
+      return 
+    }
+    //when I receive a path, assign it to an idle reduce worker I think?
+    idleReduceWorker?.reduce(dataPath, this.reduceCb)
   }
 }
 
@@ -39,13 +53,13 @@ class Machine {
   ) {}
   // naming this MAP is a bit confusing
   map(filePath: string, cb: (value: string) => unknown) {
-    console.log("we are mapping!!");
+    console.log('map task beginning')
+    this.state = 'in-progress'
     const absolutePath = path.resolve(filePath);
     const fileContent = fs.readFileSync(absolutePath, "utf-8");
 
     //for each row in filePath
     const rows = fileContent.split("\n"); //parse from file path
-    console.log({ rows });
 
     //batch process the rows in case there are a ton
     for (let i = 0; i < rows.length; i += mapBatchSize) {
@@ -61,30 +75,44 @@ class Machine {
       // partitioned into R regions by the partitioning function.
       // The locations of these buffered pairs on the local disk are passed back to the master,
       // who is responsible for forwarding these locations to the reduce workers.
+      const path = `mappedData/mappedRowsBatch-${i}.json`
       fs.writeFile(
-        `mappedRowsBatch-${i}.json`,
+        path,
         JSON.stringify(mappedRows),
         (err) => {
           if (err) {
             console.error(err);
           } else {
-            console.log("file written successfully");
+
+            //3
+            //notify the master of the locations of the rows we wrote
+            console.log("Map task DONE! Notifying master!");
+            this.masterMachine.receiveMappedDataPath(path)
           }
         },
       );
-
-      //3
-      //notify the master of the locations of the rows we wrote
-      console.log("DONE! Notifying!");
     }
+    this.state = 'completed' //todo I'm not entirely sure what the point of completed is? Why not just back to idle?
   }
   reduce(mappedFilePath: string, cb) {
+    console.log('reduce is being called!')
+    this.state = "in-progress";
+
+    const absolutePath = path.resolve(mappedFilePath);
+    const fileContent = fs.readFileSync(absolutePath, "utf-8");
+    
     //1
     //  When a reduce worker has read all intermediate data,
     //  it sorts it by the intermediate keys so that
     //  all occurrences of the same key are grouped together.
     //  The sorting is needed because typically many different keys
     //  map to the same reduce task.
+
+    console.log('this is file content inside reduce!! ', JSON.parse(fileContent))
+    // const cleanedData = fileContent.
+
+
+
     //2
     //  If the amount of intermediate data is too large to fit in memory, an external sort is used.
     //The reduce worker iterates over the sorted intermediate data
