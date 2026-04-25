@@ -9,7 +9,7 @@ class MasterMachine {
 
   constructor(
     private mapCb: (value: string) => unknown,
-    private reduceCb: (value: string) => unknown,
+    private reduceCb: (acc: any[], value: any) => unknown,
     private filePath: string,
   ) {}
 
@@ -94,6 +94,8 @@ class Machine {
     }
     this.state = 'completed' //todo I'm not entirely sure what the point of completed is? Why not just back to idle?
   }
+
+  // todo - type this cb
   reduce(mappedFilePath: string, cb) {
     console.log('reduce is being called!')
     this.state = "in-progress";
@@ -109,7 +111,6 @@ class Machine {
     //  map to the same reduce task.
 
     const kvPairs = JSON.parse(fileContent) as [string, any][][]
-    console.log('this is file content inside reduce!! ', kvPairs)
     const cleanedDataObj = kvPairs.flat().reduce<Record<string, any[]>>((acc, [k, v]) => {
       if(acc[k]){
         acc[k].push(v)
@@ -123,7 +124,6 @@ class Machine {
     // like im mapping into object than iterating again to make an array?
     // this is lots of 0(n) methods back to back ... 
     const cleanedDataList = Object.entries(cleanedDataObj).map(([k, v]) => [k, v])
-    console.log("cleaned data ", cleanedDataList)
 
     //2
     //  If the amount of intermediate data is too large to fit in memory, an external sort is used.
@@ -132,18 +132,29 @@ class Machine {
     // it passes the key and the corresponding set of intermediate values
     // to the user’s Reduce function.
     // The output of the Reduce function is appended to a final output file for this reduce partition.
+    const reducedValues = cleanedDataList.reduce(cb);
+    console.log('these are the reduced values!!!')
+    console.log(reducedValues)
+
   }
 }
 
 const main = (inputFilePath: string) => {
   //1: split the file into chunks (how many chunks?)
 
+  //generate a kv pair for each word
   const mapFn = (s: string) => 
-    s.trim().split(" ").map(word => [word, 1])
+    s.trim().split(" ").map(word => [word.toLocaleLowerCase(), 1])
+
+  //count the ocurrences per word and turn into object
+  const reduceFn = (acc: [string, number][], [k, v]: [string, number[]]) => {
+    //todo this spreading is costly I believe
+    return [...acc, [k, v.reduce((acc, num)=>acc+num, 0)]]
+  }
 
   const masterMachine = new MasterMachine(
     mapFn,
-    (a: any) => a,
+    reduceFn,
     inputFilePath,
   );
   masterMachine.init();
