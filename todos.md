@@ -8,6 +8,7 @@ CANDIDATES:
 - task queue. E.G. I can have more tasks than workers and they'll all get processed eventually. Also I think workers should be generic but tasks should be typed as well
 
 ### Important
+- Health check for workers 
 - Error handling (when a worker fails, task gets picked up by another one)
 
 ### Nice
