@@ -46,10 +46,13 @@ class MasterMachine {
 let iterationBlocker = 0;
 
 class Machine {
+
+  //todo I just realized that this state is actually on tasks themselves, NOT on the workers
+
   state: "idle" | "in-progress" | "completed" = "idle";
   constructor(
     public masterMachine: MasterMachine,
-    public type: "reduce" | "map",
+    public type: "reduce" | "map", //also I think workers should be generic but tasks should have types
   ) {}
   // naming this MAP is a bit confusing
   map(filePath: string, cb: (value: string) => unknown) {
